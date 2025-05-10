@@ -1,3 +1,4 @@
+import json
 from app.logger import setup_logger
 from app.hubspot_client import HubSpotClient
 from hubspot.crm.contacts import ApiException
@@ -36,9 +37,15 @@ def handle_lead_payload(payload: dict, svix_id: str = None):
         return True
 
     except ApiException as e:
-        logger.error(f"HubSpot API exception occurred: {e}", extra={"svix_id": svix_id})
-        return HubSpotProcessingError(str(e))
+        try:
+            error_body = json.loads(e.body)
+            detail = error_body.get("message", str(e))
+        except Exception:
+            detail = str(e)
+
+        logger.error(f"HubSpot API error: {detail}", extra={"svix_id": svix_id})
+        return HubSpotProcessingError(detail)
 
     except Exception as e:
         logger.exception(f"Unexpected error during HubSpot processing: {e}", extra={"svix_id": svix_id})
-        return HubSpotProcessingError(str(e))
+        return HubSpotProcessingError("Unexpected internal error")
